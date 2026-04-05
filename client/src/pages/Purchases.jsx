@@ -11,6 +11,14 @@ const parseLocal = (str) => { const [y, m, d] = str.split('-').map(Number); retu
 
 const EMPTY = { itemId: '', quantityPurchased: '', buyerName: '', purchaseDate: today() };
 
+const Field = ({ label, error, children }) => (
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-1.5">{label}</label>
+    {children}
+    {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+  </div>
+);
+
 export default function Purchases() {
   const [items,       setItems]       = useState([]);
   const [loadingItems,setLoadingItems]= useState(true);
@@ -83,14 +91,6 @@ export default function Purchases() {
       setSubmitting(false);
     }
   };
-
-  const Field = ({ label, error, children }) => (
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-1.5">{label}</label>
-      {children}
-      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
-    </div>
-  );
 
   const inputCls = 'w-full px-3.5 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 text-sm';
   const warning  = itemWarning();

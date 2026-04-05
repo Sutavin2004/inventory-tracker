@@ -35,6 +35,13 @@ const ROW_STYLES = {
   green:  '',
 };
 
+const SortIcon = ({ col, sortBy, sortOrder }) => {
+  if (sortBy !== col) return <ChevronUp className="opacity-25" size={13} />;
+  return sortOrder === 'ASC'
+    ? <ChevronUp className="text-teal-400" size={13} />
+    : <ChevronDown className="text-teal-400" size={13} />;
+};
+
 export default function Inventory() {
   const [items,    setItems]    = useState([]);
   const [total,    setTotal]    = useState(0);
@@ -103,13 +110,6 @@ export default function Inventory() {
 
   const totalPages    = Math.ceil(total / PAGE_SIZE);
   const expiringCount = items.filter((i) => getRowStatus(i) === 'red').length;
-
-  const SortIcon = ({ col }) => {
-    if (sortBy !== col) return <ChevronUp className="opacity-25" size={13} />;
-    return sortOrder === 'ASC'
-      ? <ChevronUp className="text-teal-400" size={13} />
-      : <ChevronDown className="text-teal-400" size={13} />;
-  };
 
   return (
     <div className="space-y-4">
@@ -184,7 +184,7 @@ export default function Inventory() {
                     >
                       <span className="inline-flex items-center gap-1">
                         {label}
-                        <SortIcon col={key} />
+                        <SortIcon col={key} sortBy={sortBy} sortOrder={sortOrder} />
                       </span>
                     </th>
                   ))}
