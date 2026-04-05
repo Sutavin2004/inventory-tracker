@@ -1,0 +1,14 @@
+{
+  "name": "inventory-app",
+  "version": "1.0.0",
+  "description": "Full-stack inventory tracking application",
+  "scripts": {
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "xlsx": "^0.18.5"
+  }
+}

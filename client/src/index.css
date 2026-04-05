@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark scrollbar for all scrollable elements */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+*::-webkit-scrollbar        { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track  { background: #0f172a; }
+*::-webkit-scrollbar-thumb  { background: #334155; border-radius: 3px; }
+
+/* Smooth transitions on all interactive elements */
+button, a, input, select { transition-duration: 150ms; }
+
+/* Date input colour fix for dark theme */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
