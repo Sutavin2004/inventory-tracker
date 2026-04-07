@@ -9,6 +9,7 @@ const SORT_COLS   = ['item_id', 'item_name', 'quantity', 'warehouse_location', '
 const SORT_ORDERS = ['ASC', 'DESC'];
 
 // GET /api/inventory — paginated, searchable, sortable
+// Includes product info (price, is_published, product_id) when user has a companyId
 router.get('/', authenticate, (req, res) => {
   const {
     page      = 1,
@@ -18,12 +19,36 @@ router.get('/', authenticate, (req, res) => {
     sortOrder = 'ASC',
   } = req.query;
 
-  const col   = SORT_COLS.includes(sortBy)                  ? sortBy                  : 'item_id';
-  const order = SORT_ORDERS.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
-
+  const col     = SORT_COLS.includes(sortBy)                   ? sortBy                  : 'item_id';
+  const order   = SORT_ORDERS.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
   const offset  = (parseInt(page) - 1) * parseInt(limit);
   const pattern = `%${search}%`;
+  const companyId = req.user?.companyId;
 
+  if (companyId) {
+    // Return inventory joined with product info for this company
+    const items = db.prepare(`
+      SELECT i.*,
+        p.id            AS product_id,
+        p.price         AS product_price,
+        p.is_published  AS product_is_published
+      FROM inventory i
+      LEFT JOIN products p
+        ON p.inventory_item_id = i.item_id AND p.company_id = ?
+      WHERE i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?
+      ORDER BY i.${col} ${order}
+      LIMIT ? OFFSET ?
+    `).all(companyId, pattern, pattern, parseInt(limit), offset);
+
+    const { count: total } = db.prepare(`
+      SELECT COUNT(*) AS count FROM inventory i
+      WHERE i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?
+    `).get(pattern, pattern);
+
+    return res.json({ items, total, page: parseInt(page), limit: parseInt(limit) });
+  }
+
+  // Fallback: no company context
   const items = db.prepare(`
     SELECT * FROM inventory
     WHERE item_name LIKE ? OR CAST(item_id AS TEXT) LIKE ?
@@ -37,6 +62,61 @@ router.get('/', authenticate, (req, res) => {
   `).get(pattern, pattern);
 
   res.json({ items, total, page: parseInt(page), limit: parseInt(limit) });
+});
+
+// POST /api/inventory — add a single inventory item (admin only)
+router.post('/', authenticate, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { item_id, item_name, quantity, warehouse_location, available_date, expiry_date } = req.body;
+  if (!item_name || quantity === undefined || !warehouse_location || !available_date || !expiry_date) {
+    return res.status(400).json({
+      error: 'item_name, quantity, warehouse_location, available_date, and expiry_date are required',
+    });
+  }
+
+  const lastUpdated = new Date().toISOString();
+  const companyId   = req.user.companyId;
+
+  try {
+    let newItemId;
+    if (item_id) {
+      newItemId = parseInt(item_id);
+      db.prepare(`
+        INSERT INTO inventory (item_id, item_name, quantity, warehouse_location, available_date, expiry_date, last_updated)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(newItemId, item_name.trim(), parseInt(quantity), warehouse_location.trim(), available_date, expiry_date, lastUpdated);
+    } else {
+      const { maxId } = db.prepare('SELECT COALESCE(MAX(item_id), 0) AS maxId FROM inventory').get();
+      newItemId = maxId + 1;
+      db.prepare(`
+        INSERT INTO inventory (item_id, item_name, quantity, warehouse_location, available_date, expiry_date, last_updated)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(newItemId, item_name.trim(), parseInt(quantity), warehouse_location.trim(), available_date, expiry_date, lastUpdated);
+    }
+
+    // Auto-create product record for this company
+    if (companyId) {
+      const exists = db.prepare('SELECT id FROM products WHERE company_id = ? AND inventory_item_id = ?')
+        .get(companyId, newItemId);
+      if (!exists) {
+        db.prepare(`
+          INSERT INTO products (company_id, inventory_item_id, product_name, price, is_published, category)
+          VALUES (?, ?, ?, 0, 1, 'General')
+        `).run(companyId, newItemId, item_name.trim());
+      }
+    }
+
+    const item = db.prepare('SELECT * FROM inventory WHERE item_id = ?').get(newItemId);
+    res.status(201).json(item);
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'An item with this ID already exists' });
+    }
+    throw e;
+  }
 });
 
 // GET /api/inventory/stats — dashboard summary (must be before /:id if ever added)

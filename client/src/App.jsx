@@ -6,11 +6,15 @@ import { ToastProvider }          from './context/ToastContext';
 import { CustomerAuthProvider }   from './context/CustomerAuthContext';
 import { PlatformAuthProvider }   from './context/PlatformAuthContext';
 import { usePlatformAuth }        from './context/PlatformAuthContext';
+import { useAuth }                from './context/AuthContext';
 
 import Toast           from './components/Toast';
 import Layout          from './components/Layout';
 import PlatformLayout  from './components/PlatformLayout';
 import ProtectedRoute  from './components/ProtectedRoute';
+
+// Public landing page
+import Landing         from './pages/Landing';
 
 // Admin pages (existing)
 import Login           from './pages/Login';
@@ -46,6 +50,23 @@ import StoreRegister     from './pages/store/StoreRegister';
 import PlatformLogin     from './pages/platform/PlatformLogin';
 import PlatformDashboard from './pages/platform/PlatformDashboard';
 import PlatformStores    from './pages/platform/PlatformStores';
+
+// ─── Root: Landing for guests, Dashboard redirect for logged-in users ─────────
+function RootRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <Landing />;
+}
+
+// ─── Admin layout wrapper (pathless layout route) ─────────────────────────────
+function AdminShell() {
+  return (
+    <ProtectedRoute>
+      <Layout />
+    </ProtectedRoute>
+  );
+}
 
 // ─── Customer store wrapper (injects CustomerAuthProvider with slug) ───────────
 function StoreWrapper() {
@@ -88,39 +109,33 @@ export default function App() {
             <Toast />
 
             <Routes>
-              {/* ── Store admin login ──────────────────────────────────── */}
+              {/* ── Root: landing or dashboard redirect ────────────────── */}
+              <Route path="/" element={<RootRoute />} />
+
+              {/* ── Public pages ───────────────────────────────────────── */}
               <Route path="/login" element={<Login />} />
 
-              {/* ── Store admin shell ─────────────────────────────────── */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index                element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard"     element={<Dashboard />} />
-                <Route path="inventory"     element={<Inventory />} />
-                <Route path="purchases"     element={<Purchases />} />
-                <Route path="purchase-history" element={<PurchaseHistory />} />
-                <Route path="analytics"     element={<Analytics />} />
-                <Route path="audit"         element={<AuditLog />} />
-                <Route path="settings"      element={<Settings />} />
+              {/* ── Store admin shell (pathless layout route) ─────────── */}
+              <Route element={<AdminShell />}>
+                <Route path="/dashboard"        element={<Dashboard />} />
+                <Route path="/inventory"        element={<Inventory />} />
+                <Route path="/purchases"        element={<Purchases />} />
+                <Route path="/purchase-history" element={<PurchaseHistory />} />
+                <Route path="/analytics"        element={<Analytics />} />
+                <Route path="/audit"            element={<AuditLog />} />
+                <Route path="/settings"         element={<Settings />} />
 
-                {/* Admin-only */}
-                <Route path="upload"        element={<ProtectedRoute adminOnly><Upload /></ProtectedRoute>} />
-                <Route path="upload-history" element={<ProtectedRoute adminOnly><UploadHistory /></ProtectedRoute>} />
-                <Route path="approvals"     element={<ProtectedRoute adminOnly><Approvals /></ProtectedRoute>} />
-                <Route path="admin/products" element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
-                <Route path="admin/orders"  element={<ProtectedRoute adminOnly><AdminOrders /></ProtectedRoute>} />
-                <Route path="admin/customers" element={<ProtectedRoute adminOnly><AdminCustomers /></ProtectedRoute>} />
-                <Route path="admin/discounts" element={<ProtectedRoute adminOnly><AdminDiscounts /></ProtectedRoute>} />
+                {/* Admin-only routes */}
+                <Route path="/upload"           element={<ProtectedRoute adminOnly><Upload /></ProtectedRoute>} />
+                <Route path="/upload-history"   element={<ProtectedRoute adminOnly><UploadHistory /></ProtectedRoute>} />
+                <Route path="/approvals"        element={<ProtectedRoute adminOnly><Approvals /></ProtectedRoute>} />
+                <Route path="/admin/products"   element={<ProtectedRoute adminOnly><AdminProducts /></ProtectedRoute>} />
+                <Route path="/admin/orders"     element={<ProtectedRoute adminOnly><AdminOrders /></ProtectedRoute>} />
+                <Route path="/admin/customers"  element={<ProtectedRoute adminOnly><AdminCustomers /></ProtectedRoute>} />
+                <Route path="/admin/discounts"  element={<ProtectedRoute adminOnly><AdminDiscounts /></ProtectedRoute>} />
               </Route>
 
               {/* ── Customer-facing storefront ─────────────────────────── */}
-              {/* StoreWrapper injects CustomerAuthProvider scoped to the slug */}
               <Route path="/store/:slug" element={<StoreWrapper />}>
                 <Route index                                    element={<StoreFront />} />
                 <Route path="catalogue"                         element={<Catalogue />} />
@@ -142,7 +157,7 @@ export default function App() {
               </Route>
 
               {/* ── Catch-all ─────────────────────────────────────────── */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </PlatformAuthProvider>
         </ToastProvider>

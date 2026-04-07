@@ -29,3 +29,6 @@ export const updateStoreSettings = (data)   => client.put('/admin/store-settings
 
 // Dashboard stats
 export const getAdminDashStats   = ()       => client.get('/admin/dashboard-stats');
+
+// Single inventory item (admin add)
+export const addInventoryItem    = (data)   => client.post('/inventory', data);
