@@ -6,7 +6,7 @@ const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/auth/login
+// POST /api/auth/login  — store admin / user login
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -19,13 +19,32 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
+  // Get the user's company slug for the frontend
+  const company = user.company_id
+    ? db.prepare('SELECT id, slug, display_name FROM companies WHERE id = ?').get(user.company_id)
+    : null;
+
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    {
+      id:        user.id,
+      username:  user.username,
+      role:      user.role,
+      companyId: user.company_id || null,
+    },
     JWT_SECRET,
     { expiresIn: '24h' }
   );
 
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  res.json({
+    token,
+    user: {
+      id:        user.id,
+      username:  user.username,
+      role:      user.role,
+      companyId: user.company_id || null,
+      company:   company || null,
+    },
+  });
 });
 
 module.exports = router;

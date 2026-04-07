@@ -4,14 +4,10 @@ const cors    = require('cors');
 // Initialise DB (creates file + tables + seed users) before routes are loaded
 require('./db');
 
-const authRoutes       = require('./routes/auth');
-const inventoryRoutes  = require('./routes/inventory');
-const purchasesRoutes  = require('./routes/purchases');
-const uploadsRoutes    = require('./routes/uploads');
-const storeRoutes      = require('./routes/store');
-const customerRoutes   = require('./routes/customer');
-const adminStoreRoutes = require('./routes/adminStore');
-const platformRoutes   = require('./routes/platform');
+const authRoutes      = require('./routes/auth');
+const inventoryRoutes = require('./routes/inventory');
+const purchasesRoutes = require('./routes/purchases');
+const uploadsRoutes   = require('./routes/uploads');
 
 const app  = express();
 const PORT = process.env.PORT || 5001;
@@ -19,7 +15,7 @@ const PORT = process.env.PORT || 5001;
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
@@ -27,18 +23,6 @@ app.use('/api/auth',      authRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/uploads',   uploadsRoutes);
-
-// Public store routes (no auth)
-app.use('/api/store',     storeRoutes);
-
-// Customer routes (customer JWT)
-app.use('/api/customer',  customerRoutes);
-
-// Store admin extended routes (admin JWT)
-app.use('/api/admin',     adminStoreRoutes);
-
-// Platform super admin routes
-app.use('/api/platform',  platformRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

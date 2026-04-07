@@ -2,20 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark scrollbar for all scrollable elements */
-* {
+/* ─── Design Tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --accent:           #0F766E;
+  --accent-dark:      #0D5F58;
+  --accent-light:     #CCFBF1;
+  --warehouse-navy:   #0F172A;
+  --warehouse-steel:  #334155;
+  --surface:          #F8FAFC;
+  --card:             #FFFFFF;
+  --border:           #E2E8F0;
+  --text-primary:     #0F172A;
+  --text-secondary:   #64748B;
+  --success:          #16A34A;
+  --warning:          #D97706;
+  --danger:           #DC2626;
+  --font-display:     'Barlow', sans-serif;
+  --font-body:        'DM Sans', sans-serif;
+}
+
+/* ─── Base font ──────────────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, .font-display {
+  font-family: var(--font-display);
+}
+
+/* ─── Dark scrollbar for admin areas ────────────────────────────────────────── */
+.dark-scroll * {
   scrollbar-width: thin;
   scrollbar-color: #334155 #0f172a;
 }
-*::-webkit-scrollbar        { width: 6px; height: 6px; }
-*::-webkit-scrollbar-track  { background: #0f172a; }
-*::-webkit-scrollbar-thumb  { background: #334155; border-radius: 3px; }
+.dark-scroll *::-webkit-scrollbar       { width: 6px; height: 6px; }
+.dark-scroll *::-webkit-scrollbar-track  { background: #0f172a; }
+.dark-scroll *::-webkit-scrollbar-thumb  { background: #334155; border-radius: 3px; }
 
-/* Smooth transitions on all interactive elements */
+/* Light scrollbar for storefront */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 #F1F5F9;
+}
+*::-webkit-scrollbar       { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track  { background: #F1F5F9; }
+*::-webkit-scrollbar-thumb  { background: #CBD5E1; border-radius: 3px; }
+
+/* ─── Smooth transitions ─────────────────────────────────────────────────────── */
 button, a, input, select { transition-duration: 150ms; }
 
-/* Date input colour fix for dark theme */
-input[type="date"]::-webkit-calendar-picker-indicator {
+/* ─── Date input colour fix for dark theme ───────────────────────────────────── */
+.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
   cursor: pointer;
+}
+
+/* ─── Product card hover ─────────────────────────────────────────────────────── */
+.product-card {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+}
+
+/* ─── Storefront hero gradient ───────────────────────────────────────────────── */
+.hero-gradient {
+  background: linear-gradient(135deg, #0F172A 0%, #1E3A5F 50%, #0F766E 100%);
 }

@@ -7,13 +7,23 @@ import {
   TrendingDown,
   ShoppingCart,
   ArrowRight,
+  ShoppingBag,
+  DollarSign,
+  Clock,
+  Users,
+  Trophy,
 } from 'lucide-react';
 import { getStats, getExpiring } from '../api/inventory';
+import { getAdminDashStats } from '../api/adminApi';
 import Spinner from '../components/Spinner';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
+  const { user }   = useAuth();
+  const isAdmin    = user?.role === 'admin';
   const [stats,    setStats]    = useState(null);
   const [expiring, setExpiring] = useState([]);
+  const [ecomStats, setEcomStats] = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
 
@@ -23,6 +33,9 @@ export default function Dashboard() {
         const [s, e] = await Promise.all([getStats(), getExpiring()]);
         setStats(s);
         setExpiring(e);
+        if (isAdmin) {
+          getAdminDashStats().then(setEcomStats).catch(() => {});
+        }
       } catch {
         setError('Failed to load dashboard data. Is the server running?');
       } finally {
@@ -30,7 +43,7 @@ export default function Dashboard() {
       }
     };
     load();
-  }, []);
+  }, [isAdmin]);
 
   if (loading) {
     return (
@@ -96,7 +109,36 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+      <h1 className="text-2xl font-extrabold text-white font-display">Dashboard</h1>
+
+      {/* E-commerce summary (admin only) */}
+      {isAdmin && ecomStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Orders Today',    value: ecomStats.ordersToday,   Icon: ShoppingBag,  color: 'text-blue-400',   bg: 'bg-blue-500/10',   link: '/admin/orders' },
+            { label: 'Revenue Today',   value: `$${(ecomStats.revenueToday||0).toFixed(2)}`, Icon: DollarSign, color: 'text-teal-400', bg: 'bg-teal-500/10', link: '/admin/orders' },
+            { label: 'Pending Orders',  value: ecomStats.pendingOrders, Icon: Clock,         color: 'text-amber-400',  bg: 'bg-amber-500/10',  link: '/admin/orders' },
+            { label: 'Total Customers', value: ecomStats.totalCustomers, Icon: Users,        color: 'text-purple-400', bg: 'bg-purple-500/10', link: '/admin/customers' },
+          ].map(({ label, value, Icon, color, bg, link }) => (
+            <Link key={label} to={link} className="bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-2xl p-4 transition-all group">
+              <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center mb-3`}>
+                <Icon size={17} className={color} />
+              </div>
+              <p className="text-2xl font-bold text-white">{value}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+            </Link>
+          ))}
+        </div>
+      )}
+      {isAdmin && ecomStats?.bestSelling && (
+        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+          <Trophy size={18} className="text-amber-400 flex-shrink-0" />
+          <p className="text-amber-200 text-sm">
+            <span className="font-semibold">Best seller this week:</span>{' '}
+            {ecomStats.bestSelling.product_name} ({ecomStats.bestSelling.total_sold} sold)
+          </p>
+        </div>
+      )}
 
       {/* Expiry alert banner */}
       {expiring.length > 0 && (
