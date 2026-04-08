@@ -1,0 +1,8 @@
+.history/
+.DS_Store
+client/node_modules/
+server/node_modules/
+node_modules/
+*.db-shm
+*.db-wal
+client/.env.development

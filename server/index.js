@@ -1,5 +1,6 @@
 const express = require('express');
 const cors    = require('cors');
+const path    = require('path');
 
 // Initialise DB (creates file + tables + seed users) before routes are loaded
 require('./db');
@@ -15,10 +16,28 @@ const platformRoutes   = require('./routes/platform');
 
 const app  = express();
 const PORT = process.env.PORT || 5001;
+const isProd = process.env.NODE_ENV === 'production';
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
+const allowedOrigins = isProd
+  ? [
+      'https://edepot.ca',
+      'https://www.edepot.ca',
+      /\.edepot\.ca$/,
+    ]
+  : ['http://localhost:5173', 'http://localhost:5174'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow curl / server-to-server
+    const allowed = allowedOrigins.some((o) =>
+      o instanceof RegExp ? o.test(origin) : o === origin
+    );
+    callback(allowed ? null : new Error('Not allowed by CORS'), allowed);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
@@ -42,9 +61,22 @@ app.use('/api/platform',  platformRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// ─── Serve React build in production ────────────────────────────────────────
+
+if (isProd) {
+  const clientDist = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientDist));
+  // SPA catch-all: serve index.html for any non-API route
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
+
 // ─── 404 & global error handler ─────────────────────────────────────────────
 
-app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
+if (!isProd) {
+  app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
+}
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
@@ -53,6 +85,6 @@ app.use((err, _req, res, _next) => {
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });

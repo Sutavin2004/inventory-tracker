@@ -2,6 +2,15 @@ node_modules/
 client/node_modules/
 server/node_modules/
 server/database.db
+server/database.db-shm
+server/database.db-wal
 .env
+.env.local
+.env.*.local
+client/.env.development
+client/.env.production
+server/.env
 dist/
+client/dist/
 .DS_Store
+.history/
