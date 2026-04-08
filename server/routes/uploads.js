@@ -16,12 +16,12 @@ const FILENAME_RE = /^inventory-\d{4}-\d{2}-\d{2}\.xlsx$/;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function logUpload(filename, uploadedBy, uploadedAt, status, reason, rowsBefore, rowsAfter) {
+function logUpload(filename, uploadedBy, uploadedAt, status, reason, rowsBefore, rowsAfter, companyId) {
   try {
     db.prepare(`
-      INSERT INTO upload_logs (filename, uploaded_by, uploaded_at, status, reason, rows_before, rows_after)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(filename, uploadedBy, uploadedAt, status, reason ?? null, rowsBefore, rowsAfter);
+      INSERT INTO upload_logs (filename, uploaded_by, uploaded_at, status, reason, rows_before, rows_after, company_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(filename, uploadedBy, uploadedAt, status, reason ?? null, rowsBefore, rowsAfter, companyId ?? null);
   } catch (e) {
     console.error('Failed to write upload log:', e.message);
   }
@@ -76,14 +76,20 @@ router.post('/', authenticate, requireAdmin, (req, res) => {
       });
     }
 
-    // ── Duplicate check ──────────────────────────────────────────────────────
-    if (db.prepare('SELECT id FROM upload_logs WHERE filename = ?').get(filename)) {
+    // ── Duplicate check (scoped to company) ─────────────────────────────────
+    const companyId = req.user?.companyId;
+    const dupCheck = companyId
+      ? db.prepare('SELECT id FROM upload_logs WHERE filename = ? AND company_id = ?').get(filename, companyId)
+      : db.prepare('SELECT id FROM upload_logs WHERE filename = ? AND company_id IS NULL').get(filename);
+    if (dupCheck) {
       return res.status(409).json({
         error: 'Duplicate file: this inventory file has already been uploaded.',
       });
     }
 
-    const rowsBefore = db.prepare('SELECT COUNT(*) AS c FROM inventory').get().c;
+    const rowsBefore = companyId
+      ? db.prepare('SELECT COUNT(*) AS c FROM inventory WHERE company_id = ?').get(companyId).c
+      : db.prepare('SELECT COUNT(*) AS c FROM inventory').get().c;
 
     try {
       // ── Parse Excel ─────────────────────────────────────────────────────────
@@ -92,7 +98,7 @@ router.post('/', authenticate, requireAdmin, (req, res) => {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
       if (rows.length < 2) {
-        logUpload(filename, uploadedBy, uploadedAt, 'failure', 'File is empty or has no data rows', rowsBefore, rowsBefore);
+        logUpload(filename, uploadedBy, uploadedAt, 'failure', 'File is empty or has no data rows', rowsBefore, rowsBefore, companyId ?? null);
         return res.status(400).json({ error: 'File is empty or has no data rows' });
       }
 
@@ -104,7 +110,7 @@ router.post('/', authenticate, requireAdmin, (req, res) => {
 
       if (missing.length > 0) {
         const reason = `Missing columns: ${missing.join(', ')}`;
-        logUpload(filename, uploadedBy, uploadedAt, 'failure', reason, rowsBefore, rowsBefore);
+        logUpload(filename, uploadedBy, uploadedAt, 'failure', reason, rowsBefore, rowsBefore, companyId ?? null);
         return res.status(400).json({ error: reason });
       }
 
@@ -162,16 +168,31 @@ router.post('/', authenticate, requireAdmin, (req, res) => {
             updated++;
           } else {
             db.prepare(`
-              INSERT INTO inventory (item_id, item_name, quantity, warehouse_location, available_date, expiry_date, last_updated)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(itemId, itemName, qty, location, availableDate, expiryDate, now);
+              INSERT INTO inventory (item_id, item_name, quantity, warehouse_location, available_date, expiry_date, last_updated, company_id)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(itemId, itemName, qty, location, availableDate, expiryDate, now, companyId ?? null);
             added++;
+          }
+
+          // Auto-create product record for this company if not already linked
+          if (companyId) {
+            const pExists = db.prepare(
+              'SELECT id FROM products WHERE company_id = ? AND inventory_item_id = ?'
+            ).get(companyId, itemId);
+            if (!pExists) {
+              db.prepare(`
+                INSERT INTO products (company_id, inventory_item_id, product_name, price, is_published, category)
+                VALUES (?, ?, ?, 0, 1, 'General')
+              `).run(companyId, itemId, itemName);
+            }
           }
         }
       })();
 
-      const rowsAfter = db.prepare('SELECT COUNT(*) AS c FROM inventory').get().c;
-      logUpload(filename, uploadedBy, uploadedAt, 'success', null, rowsBefore, rowsAfter);
+      const rowsAfter = companyId
+        ? db.prepare('SELECT COUNT(*) AS c FROM inventory WHERE company_id = ?').get(companyId).c
+        : db.prepare('SELECT COUNT(*) AS c FROM inventory').get().c;
+      logUpload(filename, uploadedBy, uploadedAt, 'success', null, rowsBefore, rowsAfter, companyId);
 
       res.json({
         success:     true,
@@ -187,16 +208,21 @@ router.post('/', authenticate, requireAdmin, (req, res) => {
 
     } catch (err) {
       const reason = `Parse error: ${err.message}`;
-      logUpload(filename, uploadedBy, uploadedAt, 'failure', reason, rowsBefore, rowsBefore);
+      logUpload(filename, uploadedBy, uploadedAt, 'failure', reason, rowsBefore, rowsBefore, companyId ?? null);
       res.status(500).json({ error: reason });
     }
   });
 });
 
-// ─── GET /api/uploads — upload history ──────────────────────────────────────
+// ─── GET /api/uploads — upload history (company-scoped) ──────────────────────
 
-router.get('/', authenticate, requireAdmin, (_req, res) => {
-  res.json(db.prepare('SELECT * FROM upload_logs ORDER BY uploaded_at DESC').all());
+router.get('/', authenticate, requireAdmin, (req, res) => {
+  const companyId = req.user?.companyId;
+  if (companyId) {
+    res.json(db.prepare('SELECT * FROM upload_logs WHERE company_id = ? ORDER BY uploaded_at DESC').all(companyId));
+  } else {
+    res.json(db.prepare('SELECT * FROM upload_logs ORDER BY uploaded_at DESC').all());
+  }
 });
 
 module.exports = router;

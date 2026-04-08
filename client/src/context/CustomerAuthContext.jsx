@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
 const CustomerAuthContext = createContext(null);
@@ -48,10 +49,20 @@ export function CustomerAuthProvider({ children, slug }) {
   };
 
   return (
-    <CustomerAuthContext.Provider value={{ customer, token, login, register, logout, loading }}>
+    <CustomerAuthContext.Provider value={{ customer, token, login, register, logout, loading, slug }}>
       {children}
     </CustomerAuthContext.Provider>
   );
 }
 
 export const useCustomerAuth = () => useContext(CustomerAuthContext);
+
+/**
+ * Returns the store slug — works in both path-based (/store/:slug/*) and
+ * subdomain-based routing (where slug comes from CustomerAuthProvider context).
+ */
+export function useStoreSlug() {
+  const params = useParams();
+  const { slug: ctxSlug } = useCustomerAuth();
+  return params?.slug || ctxSlug;
+}

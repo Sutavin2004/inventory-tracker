@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Package, Eye, EyeOff, Store, User } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -12,14 +12,16 @@ export default function Login() {
   const [tab, setTab] = useState('admin');
 
   // Admin login form
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [username,    setUsername]    = useState('');
+  const [password,    setPassword]    = useState('');
+  const [storeSlug,   setStoreSlug]   = useState('');
+  const [showPass,    setShowPass]    = useState(false);
+  const [rememberMe,  setRememberMe]  = useState(false);
 
   // Customer login form
-  const [custSlug,  setCustSlug]  = useState('');
-  const [custEmail, setCustEmail] = useState('');
-  const [custPass,  setCustPass]  = useState('');
+  const [custSlug,     setCustSlug]     = useState('');
+  const [custEmail,    setCustEmail]    = useState('');
+  const [custPass,     setCustPass]     = useState('');
   const [showCustPass, setShowCustPass] = useState(false);
 
   const [error,   setError]   = useState('');
@@ -33,7 +35,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(username.trim(), password);
+      await login(username.trim(), password, storeSlug.trim() || undefined, rememberMe);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error ?? 'Login failed. Please check your credentials.');
@@ -54,7 +56,6 @@ export default function Login() {
         password: custPass,
         company_slug: custSlug.trim(),
       });
-      // Store the customer token in localStorage using the same key CustomerAuthContext uses
       const slug = custSlug.trim();
       localStorage.setItem(`customerToken_${slug}`, data.token);
       localStorage.setItem(`customerUser_${slug}`, JSON.stringify(data.customer));
@@ -86,10 +87,12 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-teal-500/30">
-            <Package className="text-white" size={30} />
-          </div>
-          <h1 className="text-2xl font-bold text-white font-display">E-Depot</h1>
+          <Link to="/">
+            <div className="w-16 h-16 bg-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-teal-500/30">
+              <Package className="text-white" size={30} />
+            </div>
+          </Link>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>E-Depot</h1>
           <p className="text-slate-400 text-sm mt-1">Warehouse Commerce Platform</p>
         </div>
 
@@ -119,7 +122,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoFocus
-                placeholder="admin or user"
+                placeholder="admin"
                 className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 text-sm"
               />
             </div>
@@ -146,13 +149,47 @@ export default function Login() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Store Slug <span className="text-slate-500 font-normal">(optional)</span>
+              </label>
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-sm">
+                <span className="text-slate-500 whitespace-nowrap">edepot.ca/store/</span>
+                <input
+                  type="text"
+                  value={storeSlug}
+                  onChange={(e) => setStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="your-store"
+                  className="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Leave blank for demo login</p>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-500/30"
+              />
+              <span className="text-slate-400 text-sm">Remember me for 30 days</span>
+            </label>
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-500 disabled:opacity-60 transition-colors shadow-lg shadow-teal-600/20 mt-2"
+              className="w-full py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-500 disabled:opacity-60 transition-colors shadow-lg shadow-teal-600/20"
             >
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
+
+            <p className="text-center text-slate-500 text-sm">
+              No store yet?{' '}
+              <Link to="/register" className="text-teal-400 hover:text-teal-300 font-medium">
+                Create one free
+              </Link>
+            </p>
           </form>
         )}
 
@@ -171,7 +208,7 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Store Address</label>
               <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-sm">
-                <span className="text-slate-500 whitespace-nowrap">edepot.com/store/</span>
+                <span className="text-slate-500 whitespace-nowrap">edepot.ca/store/</span>
                 <input
                   type="text"
                   value={custSlug}
@@ -221,7 +258,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-500 disabled:opacity-60 transition-colors shadow-lg shadow-teal-600/20 mt-2"
+              className="w-full py-3 bg-teal-600 text-white font-semibold rounded-xl hover:bg-teal-500 disabled:opacity-60 transition-colors shadow-lg shadow-teal-600/20"
             >
               {loading ? 'Signing in…' : 'Sign In to Store'}
             </button>
@@ -234,7 +271,7 @@ export default function Login() {
           {tab === 'admin' ? (
             <>
               <p>Admin: <span className="text-slate-300 font-mono">admin / admin123</span></p>
-              <p>User:  <span className="text-slate-300 font-mono">user  / user123</span></p>
+              <p>Store: <span className="text-slate-300 font-mono">edepot-demo</span> (or leave blank)</p>
             </>
           ) : (
             <>

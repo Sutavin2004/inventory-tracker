@@ -26,7 +26,7 @@ router.get('/', authenticate, (req, res) => {
   const companyId = req.user?.companyId;
 
   if (companyId) {
-    // Return inventory joined with product info for this company
+    // Return inventory filtered AND joined with product info for this company
     const items = db.prepare(`
       SELECT i.*,
         p.id            AS product_id,
@@ -35,15 +35,17 @@ router.get('/', authenticate, (req, res) => {
       FROM inventory i
       LEFT JOIN products p
         ON p.inventory_item_id = i.item_id AND p.company_id = ?
-      WHERE i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?
+      WHERE (i.company_id = ? OR i.company_id IS NULL)
+        AND (i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?)
       ORDER BY i.${col} ${order}
       LIMIT ? OFFSET ?
-    `).all(companyId, pattern, pattern, parseInt(limit), offset);
+    `).all(companyId, companyId, pattern, pattern, parseInt(limit), offset);
 
     const { count: total } = db.prepare(`
       SELECT COUNT(*) AS count FROM inventory i
-      WHERE i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?
-    `).get(pattern, pattern);
+      WHERE (i.company_id = ? OR i.company_id IS NULL)
+        AND (i.item_name LIKE ? OR CAST(i.item_id AS TEXT) LIKE ?)
+    `).get(companyId, pattern, pattern);
 
     return res.json({ items, total, page: parseInt(page), limit: parseInt(limit) });
   }

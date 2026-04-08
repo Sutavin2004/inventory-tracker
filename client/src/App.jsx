@@ -7,17 +7,19 @@ import { CustomerAuthProvider }   from './context/CustomerAuthContext';
 import { PlatformAuthProvider }   from './context/PlatformAuthContext';
 import { usePlatformAuth }        from './context/PlatformAuthContext';
 import { useAuth }                from './context/AuthContext';
+import { getStoreSlug }           from './utils/subdomain';
 
 import Toast           from './components/Toast';
 import Layout          from './components/Layout';
 import PlatformLayout  from './components/PlatformLayout';
 import ProtectedRoute  from './components/ProtectedRoute';
 
-// Public landing page
+// Public / platform pages
 import Landing         from './pages/Landing';
+import Login           from './pages/Login';
+import Register        from './pages/Register';
 
 // Admin pages (existing)
-import Login           from './pages/Login';
 import Dashboard       from './pages/Dashboard';
 import Inventory       from './pages/Inventory';
 import Upload          from './pages/Upload';
@@ -29,7 +31,7 @@ import AuditLog        from './pages/AuditLog';
 import Approvals       from './pages/Approvals';
 import Settings        from './pages/Settings';
 
-// Admin pages (new)
+// Admin pages (e-commerce)
 import AdminProducts   from './pages/admin/AdminProducts';
 import AdminOrders     from './pages/admin/AdminOrders';
 import AdminCustomers  from './pages/admin/AdminCustomers';
@@ -46,7 +48,7 @@ import Account           from './pages/store/Account';
 import StoreLogin        from './pages/store/StoreLogin';
 import StoreRegister     from './pages/store/StoreRegister';
 
-// Platform admin pages
+// Platform super admin pages
 import PlatformLogin     from './pages/platform/PlatformLogin';
 import PlatformDashboard from './pages/platform/PlatformDashboard';
 import PlatformStores    from './pages/platform/PlatformStores';
@@ -101,6 +103,18 @@ function PlatformGuard() {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  // Subdomain detection: if on mystore.edepot.ca, rewrite URL to /store/mystore/
+  // so existing path-based routing works without modifying store pages.
+  const storeSlug = getStoreSlug();
+  if (storeSlug) {
+    const currentPath = window.location.pathname;
+    if (!currentPath.startsWith(`/store/${storeSlug}`)) {
+      const suffix = currentPath === '/' ? '' : currentPath;
+      window.location.replace(`/store/${storeSlug}${suffix}${window.location.search}`);
+      return null; // render nothing while browser redirects
+    }
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -113,7 +127,8 @@ export default function App() {
               <Route path="/" element={<RootRoute />} />
 
               {/* ── Public pages ───────────────────────────────────────── */}
-              <Route path="/login" element={<Login />} />
+              <Route path="/login"    element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
               {/* ── Store admin shell (pathless layout route) ─────────── */}
               <Route element={<AdminShell />}>

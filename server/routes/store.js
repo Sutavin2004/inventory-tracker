@@ -58,6 +58,26 @@ router.get('/:slug/categories', (req, res) => {
   res.json(cats.map(r => r.category));
 });
 
+// GET /api/store/:slug/products/featured — featured products
+router.get('/:slug/products/featured', (req, res) => {
+  const company = getCompany(req.params.slug);
+  if (!company || !company.is_active) return res.status(404).json({ error: 'Store not found' });
+
+  const featured = db.prepare(`
+    SELECT p.*,
+      COALESCE(i.quantity, 0) AS stock_quantity,
+      COALESCE(i.warehouse_location, '') AS warehouse_location
+    FROM products p
+    LEFT JOIN inventory i ON i.item_id = p.inventory_item_id
+    WHERE p.company_id = ? AND p.is_published = 1 AND p.is_featured = 1
+      AND COALESCE(i.quantity, 999) > 0
+    ORDER BY p.created_at DESC
+    LIMIT 8
+  `).all(company.id);
+
+  res.json(featured);
+});
+
 // GET /api/store/:slug/products — published products with filters + pagination
 router.get('/:slug/products', (req, res) => {
   const company = getCompany(req.params.slug);

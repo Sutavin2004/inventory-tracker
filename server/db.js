@@ -2,7 +2,9 @@ const Database = require('better-sqlite3');
 const path     = require('path');
 const bcrypt   = require('bcryptjs');
 
-const db = new Database(path.join(__dirname, 'database.db'));
+// ─── Use DATABASE_PATH env var for Railway volume persistence ──────────────────
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.db');
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -28,7 +30,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS upload_logs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename    TEXT    UNIQUE NOT NULL,
+    filename    TEXT    NOT NULL,
     uploaded_by TEXT    NOT NULL,
     uploaded_at TEXT    NOT NULL,
     status      TEXT    NOT NULL,
@@ -73,10 +75,28 @@ db.exec(`
   );
 `);
 
-// Add company_id to users safely (column may already exist on re-run)
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN company_id INTEGER REFERENCES companies(id)`);
-} catch (_) { /* column already exists */ }
+// ─── Safe ALTER TABLE additions (wrapped in try/catch) ────────────────────────
+
+const safeAlter = (sql) => { try { db.exec(sql); } catch (_) {} };
+
+// companies — missing columns
+safeAlter(`ALTER TABLE companies ADD COLUMN primary_color TEXT DEFAULT '#0F766E'`);
+safeAlter(`ALTER TABLE companies ADD COLUMN logo_url TEXT`);
+safeAlter(`ALTER TABLE companies ADD COLUMN low_stock_threshold INTEGER DEFAULT 10`);
+safeAlter(`ALTER TABLE companies ADD COLUMN require_purchase_approval INTEGER DEFAULT 0`);
+
+// users — add company_id if missing
+safeAlter(`ALTER TABLE users ADD COLUMN company_id INTEGER REFERENCES companies(id)`);
+
+// inventory — add company_id for multi-tenant scoping
+safeAlter(`ALTER TABLE inventory ADD COLUMN company_id INTEGER REFERENCES companies(id)`);
+
+// upload_logs — remove old UNIQUE constraint on filename, add company_id
+safeAlter(`ALTER TABLE upload_logs ADD COLUMN company_id INTEGER REFERENCES companies(id)`);
+
+// orders — add discount_amount and discount_code_used if missing
+safeAlter(`ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0`);
+safeAlter(`ALTER TABLE orders ADD COLUMN discount_code_used TEXT`);
 
 // ─── New: E-commerce tables ───────────────────────────────────────────────────
 
@@ -186,6 +206,29 @@ db.exec(`
     created_at       TEXT    DEFAULT (datetime('now')),
     UNIQUE(company_id, code)
   );
+
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id   INTEGER,
+    action       TEXT    NOT NULL,
+    item_id      INTEGER,
+    item_name    TEXT,
+    change_amount INTEGER,
+    old_quantity INTEGER,
+    new_quantity INTEGER,
+    performed_by TEXT,
+    timestamp    TEXT    DEFAULT (datetime('now')),
+    notes        TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS inventory_snapshots (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id     INTEGER,
+    snapshot_date  TEXT,
+    total_items    INTEGER,
+    total_quantity INTEGER,
+    created_at     TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ─── Seed demo company ────────────────────────────────────────────────────────
@@ -194,11 +237,12 @@ let demoCompany = db.prepare("SELECT * FROM companies WHERE slug = 'edepot-demo'
 if (!demoCompany) {
   const res = db.prepare(`
     INSERT INTO companies (slug, display_name, store_tagline, store_description,
-      currency, tax_rate, store_email, store_phone, store_address)
+      currency, tax_rate, store_email, store_phone, store_address, primary_color)
     VALUES ('edepot-demo', 'E-Depot Demo Store',
       'Your trusted warehouse partner',
       'Welcome to E-Depot — industrial supplies, warehousing goods, and more. Fast shipping, competitive prices.',
-      'CAD', 0.13, 'demo@edepot.com', '1-800-EDEPOT', '100 Warehouse Blvd, Toronto, ON M5V 1A1')
+      'CAD', 0.13, 'demo@edepot.com', '1-800-EDEPOT', '100 Warehouse Blvd, Toronto, ON M5V 1A1',
+      '#0F766E')
   `).run();
   demoCompany = db.prepare('SELECT * FROM companies WHERE id = ?').get(res.lastInsertRowid);
   console.log('Seeded demo company: E-Depot Demo Store');
@@ -238,6 +282,10 @@ if (!demoCustomerExists) {
   console.log('Seeded demo customer: Jane Smith (jane@example.com / customer123)');
 }
 
+// ─── Assign company_id to existing inventory items without one ─────────────────
+
+db.prepare('UPDATE inventory SET company_id = ? WHERE company_id IS NULL').run(demoCompany.id);
+
 // ─── Auto-create products from existing inventory items ───────────────────────
 
 const SAMPLE_PRICES = [9.99, 14.99, 19.99, 24.99, 29.99, 39.99, 49.99, 59.99, 79.99, 99.99];
@@ -270,7 +318,6 @@ if (!d1) {
     INSERT INTO discount_codes (company_id, code, discount_type, discount_value, min_order_amount, is_active)
     VALUES (?, 'WELCOME10', 'percentage', 10, 0, 1)
   `).run(demoCompany.id);
-  console.log('Seeded discount code: WELCOME10 (10% off)');
 }
 
 const d2 = db.prepare("SELECT id FROM discount_codes WHERE company_id = ? AND code = 'SAVE20'").get(demoCompany.id);
@@ -279,7 +326,6 @@ if (!d2) {
     INSERT INTO discount_codes (company_id, code, discount_type, discount_value, min_order_amount, is_active)
     VALUES (?, 'SAVE20', 'fixed', 20, 100, 1)
   `).run(demoCompany.id);
-  console.log('Seeded discount code: SAVE20 ($20 off orders over $100)');
 }
 
 module.exports = db;

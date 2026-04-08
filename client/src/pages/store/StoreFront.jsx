@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ShoppingCart, ArrowRight, Package, Star, Truck, Shield, Clock } from 'lucide-react';
 import { getStore } from '../../api/storeApi';
 import CustomerLayout from '../../components/CustomerLayout';
+import AdminStoreToolbar from '../../components/AdminStoreToolbar';
 
 function ProductCard({ product, slug }) {
   const stock = product.stock_quantity;
@@ -95,6 +96,7 @@ export default function StoreFront() {
 
   return (
     <CustomerLayout>
+      <AdminStoreToolbar storeName={store.display_name} slug={slug} />
       {/* Hero */}
       <section className="hero-gradient text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">

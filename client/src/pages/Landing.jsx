@@ -71,10 +71,10 @@ export default function Landing() {
               Sign In
             </Link>
             <Link
-              to="/platform/login"
+              to="/register"
               className="px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-500 rounded-xl transition-colors"
             >
-              Platform Admin
+              Create Your Store
             </Link>
           </div>
         </div>
@@ -99,17 +99,16 @@ export default function Landing() {
             </p>
             <div className="flex flex-wrap gap-4">
               <Link
-                to="/login"
+                to="/register"
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-teal-500 hover:bg-teal-400 text-white font-bold rounded-xl transition-colors text-sm shadow-lg shadow-teal-500/30"
               >
-                Get Started Free <ArrowRight size={16} />
+                Create Your Free Store <ArrowRight size={16} />
               </Link>
               <Link
-                to="/store/edepot-demo"
+                to="/login"
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors text-sm border border-white/20"
               >
-                <ShoppingCart size={16} />
-                See Demo Store
+                Login to Your Store
               </Link>
             </div>
           </div>
@@ -190,10 +189,10 @@ export default function Landing() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
-              to="/login"
+              to="/register"
               className="inline-flex items-center gap-2 px-7 py-3.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-teal-500/20"
             >
-              Sign In <ArrowRight size={16} />
+              Create Your Free Store <ArrowRight size={16} />
             </Link>
             <Link
               to="/store/edepot-demo"

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin } from '../api/auth';
+import axios from 'axios';
 
 const AuthContext = createContext(null);
 
@@ -13,14 +13,24 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem('token');
     const storedUser  = localStorage.getItem('user');
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsed = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(parsed);
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
-    const data = await apiLogin(username, password);
+  const login = async (username, password, companySlug, rememberMe = false) => {
+    const { data } = await axios.post('/api/auth/login', {
+      username,
+      password,
+      ...(companySlug ? { company_slug: companySlug } : {}),
+    });
     setToken(data.token);
     setUser(data.user);
     localStorage.setItem('token', data.token);

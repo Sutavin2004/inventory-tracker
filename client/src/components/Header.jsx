@@ -1,10 +1,12 @@
 import { Shield, User, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getStoreUrl } from '../utils/subdomain';
 
 export default function Header() {
   const { user } = useAuth();
   const isAdmin  = user?.role === 'admin';
-  const slug     = user?.company?.slug || 'edepot-demo';
+  const slug     = user?.companySlug || user?.company?.slug || 'edepot-demo';
+  const storeUrl = getStoreUrl(slug);
 
   return (
     <header className="h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800 flex items-center justify-between px-6 flex-shrink-0">
@@ -17,7 +19,7 @@ export default function Header() {
       <div className="flex items-center gap-3">
         {isAdmin && (
           <a
-            href={`/store/${slug}`}
+            href={storeUrl}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 border border-teal-500/20 transition-all"

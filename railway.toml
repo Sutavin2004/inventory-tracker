@@ -9,5 +9,11 @@ healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-[environment]
+[[volumes]]
+mountPath = "/data"
+
+[environments.production.variables]
 NODE_ENV = "production"
+BASE_DOMAIN = "edepot.ca"
+FRONTEND_URL = "https://edepot.ca"
+DATABASE_PATH = "/data/database.db"

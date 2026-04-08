@@ -5,6 +5,7 @@ import {
   Settings, ExternalLink, Boxes,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getStoreUrl } from '../utils/subdomain';
 
 const STORE_NAV = [
   { to: '/dashboard',       label: 'Dashboard',    Icon: LayoutDashboard },
@@ -60,7 +61,8 @@ function NavSection({ title, items, userRole }) {
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const slug = user?.company?.slug || 'edepot-demo';
+  const slug = user?.companySlug || user?.company?.slug || 'edepot-demo';
+  const storeUrl = getStoreUrl(slug);
 
   return (
     <aside className="w-64 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col h-full dark-scroll">
@@ -101,7 +103,7 @@ export default function Sidebar() {
         </NavLink>
 
         <a
-          href={`/store/${slug}`}
+          href={storeUrl}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 transition-all"
