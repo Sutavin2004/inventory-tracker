@@ -1,0 +1,251 @@
+{
+  "timestamp": "2026-04-09T02:10:07.904Z",
+  "summary": {
+    "total": 48,
+    "passed": 48,
+    "failed": 0,
+    "passRate": "100%"
+  },
+  "results": [
+    {
+      "name": "1.1 Register Store A",
+      "status": "PASS",
+      "detail": "slug: sutavin-tools"
+    },
+    {
+      "name": "1.2 Register Store B",
+      "status": "PASS",
+      "detail": "slug: janes-gadgets"
+    },
+    {
+      "name": "1.3 Duplicate store name auto-increments slug",
+      "status": "PASS",
+      "detail": "new slug: sutavin-tools-2"
+    },
+    {
+      "name": "1.4 Slug availability check — taken slug returns available:false",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "1.5 Fresh slug shows available:true",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "2.1 Store A admin login",
+      "status": "PASS",
+      "detail": "token received"
+    },
+    {
+      "name": "2.2 Store B admin login",
+      "status": "PASS",
+      "detail": "token received"
+    },
+    {
+      "name": "2.3 Wrong password rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "2.4 Wrong store slug rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "2.5 Admin routes require JWT",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "2.6 GET /api/auth/me returns correct user",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "3.1 Upload inventory to Store A",
+      "status": "PASS",
+      "detail": "added: 5"
+    },
+    {
+      "name": "3.2 Store A inventory has correct items",
+      "status": "PASS",
+      "detail": "count: 5"
+    },
+    {
+      "name": "3.3 Duplicate file upload rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "3.4 Upload inventory to Store B",
+      "status": "PASS",
+      "detail": "added: 5"
+    },
+    {
+      "name": "3.5 Store A cannot see Store B inventory items",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "3.6 Products auto-created from uploaded inventory",
+      "status": "PASS",
+      "detail": "count: 5"
+    },
+    {
+      "name": "4.1 Store A info endpoint returns store data",
+      "status": "PASS",
+      "detail": "name: Sutavin Tools"
+    },
+    {
+      "name": "4.2 Store A products visible without login",
+      "status": "PASS",
+      "detail": "count: 5"
+    },
+    {
+      "name": "4.3 Store A and Store B products are completely separate",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "4.4 Categories endpoint returns data",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "4.5 Non-existent store returns 404",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "5.1 Customer registers at Store A",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "5.2 Customer login at Store A",
+      "status": "PASS",
+      "detail": "token received"
+    },
+    {
+      "name": "5.3 Duplicate email rejected at same store",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "5.4 Same email can register at different store",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "5.5 Wrong password rejected at Store B",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "5.6 Customer login at Store B",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "6.1 Cart endpoint requires customer auth",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "6.2 Add product to cart",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "6.3 Cart shows added item",
+      "status": "PASS",
+      "detail": "items: 1"
+    },
+    {
+      "name": "6.4 Cart persists in database across requests",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "6.5 Store B customer rejected at Store A cart",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "7.1 Customer places order successfully",
+      "status": "PASS",
+      "detail": "order: ORD-MNQUALXV-VTY3Z"
+    },
+    {
+      "name": "7.2 Inventory deducted after order",
+      "status": "PASS",
+      "detail": "50 → 48"
+    },
+    {
+      "name": "7.3 Cart cleared after successful order",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "7.4 Customer can view order history",
+      "status": "PASS",
+      "detail": "orders: 1"
+    },
+    {
+      "name": "7.5 Admin can see customer orders",
+      "status": "PASS",
+      "detail": "orders: 1"
+    },
+    {
+      "name": "7.6 Store B admin cannot see Store A orders",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "7.7 Orders endpoint requires customer auth",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "8.1 Customer token rejected on admin routes",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "8.2 Store A and Store B admins see different products",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "8.3 All admin routes protected without token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "8.4 Invalid token rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "9.1 Store A inventory persists",
+      "status": "PASS",
+      "detail": "count: 5"
+    },
+    {
+      "name": "9.2 Store B inventory persists",
+      "status": "PASS",
+      "detail": "count: 5"
+    },
+    {
+      "name": "9.3 Upload history logged correctly",
+      "status": "PASS",
+      "detail": "entries: 1"
+    },
+    {
+      "name": "9.4 Audit log contains purchase entry",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

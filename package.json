@@ -7,10 +7,14 @@
     "build": "cd client && npm install && npm run build",
     "start": "cd server && node index.js",
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "postinstall": "cd client && npm install && cd ../server && npm install"
+    "postinstall": "cd client && npm install && cd ../server && npm install",
+    "test": "node tests/create-fixtures.js && node tests/run-tests.js",
+    "test:report": "node tests/run-tests.js && cat tests/results/report.json"
   },
   "devDependencies": {
+    "axios": "^1.15.0",
     "concurrently": "^8.2.2",
+    "form-data": "^4.0.5",
     "xlsx": "^0.18.5"
   }
 }

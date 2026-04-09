@@ -5,6 +5,8 @@ const path    = require('path');
 // Initialise DB (creates file + tables + seed users) before routes are loaded
 require('./db');
 
+const db               = require('./db');
+const { authenticate, requireAdmin } = require('./middleware/auth');
 const authRoutes       = require('./routes/auth');
 const inventoryRoutes  = require('./routes/inventory');
 const purchasesRoutes  = require('./routes/purchases');
@@ -47,7 +49,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/uploads',   uploadsRoutes);
 
-// Public store routes (no auth)
+// Public store routes + slug-scoped customer/cart/order routes
 app.use('/api/store',     storeRoutes);
 
 // Customer routes (customer JWT)
@@ -58,6 +60,36 @@ app.use('/api/admin',     adminStoreRoutes);
 
 // Platform super admin routes
 app.use('/api/platform',  platformRoutes);
+
+// ─── Aliases expected by the test suite ─────────────────────────────────────
+
+// POST /api/inventory/upload → same handler as POST /api/uploads
+app.use('/api/inventory/upload', uploadsRoutes);
+
+// GET /api/check-slug/:slug → slug availability check
+app.get('/api/check-slug/:slug', (req, res) => {
+  const slug = req.params.slug;
+  const company = db.prepare('SELECT id FROM companies WHERE slug = ?').get(slug);
+  res.json({ slug, available: !company });
+});
+
+// GET /api/upload-history → upload logs (company-scoped)
+app.get('/api/upload-history', authenticate, requireAdmin, (req, res) => {
+  const companyId = req.user?.companyId;
+  const logs = companyId
+    ? db.prepare('SELECT * FROM upload_logs WHERE company_id = ? ORDER BY uploaded_at DESC').all(companyId)
+    : db.prepare('SELECT * FROM upload_logs ORDER BY uploaded_at DESC').all();
+  res.json({ logs });
+});
+
+// GET /api/audit → audit log (company-scoped)
+app.get('/api/audit', authenticate, requireAdmin, (req, res) => {
+  const companyId = req.user?.companyId;
+  const logs = companyId
+    ? db.prepare('SELECT * FROM audit_log WHERE company_id = ? ORDER BY timestamp DESC LIMIT 200').all(companyId)
+    : db.prepare('SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 200').all();
+  res.json({ logs });
+});
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
