@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ShoppingCart, ArrowRight, Package, Star, Truck, Shield, Clock } from 'lucide-react';
+import { ShoppingCart, ArrowRight, Package, Star, Truck, Shield, Clock, AlertTriangle } from 'lucide-react';
 import { getStore } from '../../api/storeApi';
 import CustomerLayout from '../../components/CustomerLayout';
 import AdminStoreToolbar from '../../components/AdminStoreToolbar';
@@ -97,6 +97,16 @@ export default function StoreFront() {
   return (
     <CustomerLayout>
       <AdminStoreToolbar storeName={store.display_name} slug={slug} />
+
+      {/* Setup-mode banner when Stripe is not connected */}
+      {!store.stripe_charges_enabled && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-2 text-amber-800 text-sm">
+            <AlertTriangle size={15} className="flex-shrink-0" />
+            This store is currently in setup mode and not accepting orders.
+          </div>
+        </div>
+      )}
       {/* Hero */}
       <section className="hero-gradient text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">

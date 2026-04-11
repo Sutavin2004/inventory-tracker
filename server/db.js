@@ -85,6 +85,13 @@ safeAlter(`ALTER TABLE companies ADD COLUMN logo_url TEXT`);
 safeAlter(`ALTER TABLE companies ADD COLUMN low_stock_threshold INTEGER DEFAULT 10`);
 safeAlter(`ALTER TABLE companies ADD COLUMN require_purchase_approval INTEGER DEFAULT 0`);
 
+// companies — Stripe Connect fields
+safeAlter(`ALTER TABLE companies ADD COLUMN stripe_account_id TEXT`);
+safeAlter(`ALTER TABLE companies ADD COLUMN stripe_account_status TEXT DEFAULT 'not_connected'`);
+safeAlter(`ALTER TABLE companies ADD COLUMN stripe_charges_enabled INTEGER DEFAULT 0`);
+safeAlter(`ALTER TABLE companies ADD COLUMN stripe_payouts_enabled INTEGER DEFAULT 0`);
+safeAlter(`ALTER TABLE companies ADD COLUMN platform_fee_percent REAL DEFAULT 0`);
+
 // users — add company_id if missing
 safeAlter(`ALTER TABLE users ADD COLUMN company_id INTEGER REFERENCES companies(id)`);
 
@@ -97,6 +104,17 @@ safeAlter(`ALTER TABLE upload_logs ADD COLUMN company_id INTEGER REFERENCES comp
 // orders — add discount_amount and discount_code_used if missing
 safeAlter(`ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0`);
 safeAlter(`ALTER TABLE orders ADD COLUMN discount_code_used TEXT`);
+
+// orders — Stripe payment fields
+safeAlter(`ALTER TABLE orders ADD COLUMN stripe_payment_intent_id TEXT`);
+safeAlter(`ALTER TABLE orders ADD COLUMN stripe_charge_id TEXT`);
+safeAlter(`ALTER TABLE orders ADD COLUMN payment_method_details TEXT`);
+safeAlter(`ALTER TABLE orders ADD COLUMN amount_paid REAL`);
+safeAlter(`ALTER TABLE orders ADD COLUMN currency TEXT DEFAULT 'CAD'`);
+safeAlter(`ALTER TABLE orders ADD COLUMN processing_fee REAL DEFAULT 0`);
+safeAlter(`ALTER TABLE orders ADD COLUMN refund_amount REAL DEFAULT 0`);
+safeAlter(`ALTER TABLE orders ADD COLUMN refund_reason TEXT`);
+safeAlter(`ALTER TABLE orders ADD COLUMN refunded_at TEXT`);
 
 // ─── New: E-commerce tables ───────────────────────────────────────────────────
 
@@ -228,6 +246,15 @@ db.exec(`
     total_items    INTEGER,
     total_quantity INTEGER,
     created_at     TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS stripe_connect_sessions (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id       INTEGER NOT NULL REFERENCES companies(id),
+    account_link_url TEXT,
+    created_at       TEXT    DEFAULT (datetime('now')),
+    expires_at       TEXT,
+    completed        INTEGER DEFAULT 0
   );
 `);
 

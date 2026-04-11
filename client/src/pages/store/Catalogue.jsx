@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Package, Search, Filter, ShoppingCart, Heart, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getStoreProducts, getCategories } from '../../api/storeApi';
+import { Package, Search, ShoppingCart, SlidersHorizontal, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { getStoreProducts, getCategories, getStore } from '../../api/storeApi';
 import { addToCart } from '../../api/customerApi';
 import { useCustomerAuth } from '../../context/CustomerAuthContext';
 import CustomerLayout from '../../components/CustomerLayout';
@@ -22,6 +22,7 @@ export default function Catalogue() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [cartMsg, setCartMsg]     = useState({});
+  const [storeReady, setStoreReady] = useState(true); // stripe_charges_enabled
 
   // Filters
   const [search,    setSearch]    = useState(searchParams.get('search') || '');
@@ -36,6 +37,9 @@ export default function Catalogue() {
 
   useEffect(() => {
     getCategories(slug).then(setCategories).catch(() => {});
+    getStore(slug)
+      .then(d => setStoreReady(!!d.store?.stripe_charges_enabled))
+      .catch(() => {});
   }, [slug]);
 
   const fetchProducts = useCallback(() => {
@@ -186,6 +190,13 @@ export default function Catalogue() {
 
           {/* Product grid */}
           <div className="flex-1">
+            {/* Setup-mode banner */}
+            {!storeReady && (
+              <div className="mb-5 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-amber-800 text-sm">
+                <AlertTriangle size={15} className="flex-shrink-0" />
+                This store is currently in setup mode and not accepting orders.
+              </div>
+            )}
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
                 {Array(6).fill(0).map((_, i) => (
@@ -238,9 +249,11 @@ export default function Catalogue() {
                             </div>
                             <button
                               onClick={e => handleAddToCart(p.id, e)}
-                              disabled={stock <= 0}
+                              disabled={stock <= 0 || !storeReady}
                               className={`w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-xl transition-all ${
-                                stock <= 0
+                                !storeReady
+                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                  : stock <= 0
                                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                   : cartMsg[p.id]
                                   ? 'bg-emerald-100 text-emerald-700'
@@ -248,7 +261,7 @@ export default function Catalogue() {
                               }`}
                             >
                               <ShoppingCart size={15} />
-                              {cartMsg[p.id] ? cartMsg[p.id] : stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+                              {!storeReady ? 'Coming Soon' : cartMsg[p.id] ? cartMsg[p.id] : stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
                             </button>
                           </div>
                         </div>

@@ -4,6 +4,7 @@
  * companyId is sourced from req.user.companyId (set via JWT).
  */
 const express = require('express');
+const stripe  = require('../stripe');
 const db      = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
@@ -195,6 +196,95 @@ router.put('/orders/:id/status', (req, res) => {
   db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?")
     .run(status, order.id);
   res.json({ success: true });
+});
+
+// POST /api/admin/orders/:id/refund — issue Stripe refund + optionally restore inventory
+router.post('/orders/:id/refund', async (req, res) => {
+  const companyId = getCompanyId(req);
+  const order = db.prepare(`
+    SELECT o.*, c.full_name AS customer_name
+    FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+    WHERE o.id = ? AND o.company_id = ?
+  `).get(req.params.id, companyId);
+
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  if (!order.stripe_payment_intent_id) {
+    return res.status(400).json({ error: 'No Stripe payment found for this order' });
+  }
+
+  if (order.payment_status === 'refunded') {
+    return res.status(400).json({ error: 'Order has already been fully refunded' });
+  }
+
+  const { amount, reason } = req.body;
+  const isFullRefund = !amount || parseFloat(amount) >= order.total_amount;
+  const refundAmountCents = amount ? Math.round(parseFloat(amount) * 100) : undefined;
+
+  try {
+    const refund = await stripe.refunds.create({
+      payment_intent: order.stripe_payment_intent_id,
+      ...(refundAmountCents ? { amount: refundAmountCents } : {}),
+      reason: 'requested_by_customer',
+    });
+
+    db.prepare(`
+      UPDATE orders SET
+        payment_status = ?,
+        refund_amount  = ?,
+        refund_reason  = ?,
+        refunded_at    = datetime('now'),
+        status         = ?,
+        updated_at     = datetime('now')
+      WHERE id = ?
+    `).run(
+      isFullRefund ? 'refunded' : 'paid',
+      amount ? parseFloat(amount) : order.total_amount,
+      reason || 'Refunded by store admin',
+      isFullRefund ? 'refunded' : order.status,
+      order.id,
+    );
+
+    // Restore inventory on full refund
+    if (isFullRefund) {
+      const items = db.prepare(`
+        SELECT oi.*, p.inventory_item_id
+        FROM order_items oi
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ?
+      `).all(order.id);
+
+      db.transaction(() => {
+        for (const item of items) {
+          if (item.inventory_item_id) {
+            db.prepare(`
+              UPDATE inventory SET quantity = quantity + ?, last_updated = datetime('now')
+              WHERE item_id = ?
+            `).run(item.quantity, item.inventory_item_id);
+          }
+
+          try {
+            db.prepare(`
+              INSERT INTO audit_log (company_id, action, item_id, item_name, change_amount, performed_by, notes, timestamp)
+              VALUES (?, 'ADJUSTMENT', ?, ?, ?, ?, ?, datetime('now'))
+            `).run(
+              companyId,
+              item.inventory_item_id,
+              item.product_name,
+              item.quantity,
+              req.user.username,
+              `Refund for order ${order.order_number}`,
+            );
+          } catch (_) {}
+        }
+      })();
+    }
+
+    res.json({ success: true, refundId: refund.id });
+  } catch (err) {
+    console.error('Refund error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PUT /api/admin/orders/:id/cancel — cancel and restore inventory

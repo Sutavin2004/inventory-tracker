@@ -32,3 +32,12 @@ export const getAdminDashStats   = ()       => client.get('/admin/dashboard-stat
 
 // Single inventory item (admin add)
 export const addInventoryItem    = (data)   => client.post('/inventory', data);
+
+// Refund
+export const refundOrder         = (id, d)  => client.post(`/admin/orders/${id}/refund`, d);
+
+// Stripe Connect
+export const startStripeConnect  = ()       => client.post('/stripe/connect/start');
+export const getStripeStatus     = ()       => client.get('/stripe/connect/status');
+export const disconnectStripe    = ()       => client.post('/stripe/connect/disconnect');
+export const getStripeDashboardLink = ()    => client.get('/stripe/connect/dashboard-link');

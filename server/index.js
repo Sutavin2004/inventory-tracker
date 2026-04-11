@@ -1,3 +1,6 @@
+// Load env vars from .env file (local dev; Railway sets them via dashboard)
+require('dotenv').config();
+
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
@@ -15,12 +18,15 @@ const storeRoutes      = require('./routes/store');
 const customerRoutes   = require('./routes/customer');
 const adminStoreRoutes = require('./routes/adminStore');
 const platformRoutes   = require('./routes/platform');
+const stripeConnectRoutes = require('./routes/stripe-connect');
+const paymentRoutes    = require('./routes/payments');
+const webhookRouter    = require('./routes/webhook');
 
-const app  = express();
-const PORT = process.env.PORT || 5001;
+const app    = express();
+const PORT   = process.env.PORT || 5001;
 const isProd = process.env.NODE_ENV === 'production';
 
-// ─── Middleware ──────────────────────────────────────────────────────────────
+// ─── 1. CORS (must be first) ──────────────────────────────────────────────────
 
 const allowedOrigins = isProd
   ? [
@@ -40,9 +46,17 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
 
-// ─── Routes ─────────────────────────────────────────────────────────────────
+// ─── 2. Stripe webhook (MUST be before express.json — needs raw body) ─────────
+
+app.use('/api/stripe/webhook', webhookRouter);
+
+// ─── 3. Body parsers (all other routes) ──────────────────────────────────────
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ─── 4. API Routes ────────────────────────────────────────────────────────────
 
 app.use('/api/auth',      authRoutes);
 app.use('/api/inventory', inventoryRoutes);
@@ -51,6 +65,9 @@ app.use('/api/uploads',   uploadsRoutes);
 
 // Public store routes + slug-scoped customer/cart/order routes
 app.use('/api/store',     storeRoutes);
+
+// Stripe payment routes (mounted under /api/store for :slug scoping)
+app.use('/api/store',     paymentRoutes);
 
 // Customer routes (customer JWT)
 app.use('/api/customer',  customerRoutes);
@@ -61,14 +78,17 @@ app.use('/api/admin',     adminStoreRoutes);
 // Platform super admin routes
 app.use('/api/platform',  platformRoutes);
 
-// ─── Aliases expected by the test suite ─────────────────────────────────────
+// Stripe Connect admin routes
+app.use('/api/stripe',    stripeConnectRoutes);
+
+// ─── Aliases expected by the test suite ──────────────────────────────────────
 
 // POST /api/inventory/upload → same handler as POST /api/uploads
 app.use('/api/inventory/upload', uploadsRoutes);
 
 // GET /api/check-slug/:slug → slug availability check
 app.get('/api/check-slug/:slug', (req, res) => {
-  const slug = req.params.slug;
+  const slug    = req.params.slug;
   const company = db.prepare('SELECT id FROM companies WHERE slug = ?').get(slug);
   res.json({ slug, available: !company });
 });
@@ -93,7 +113,7 @@ app.get('/api/audit', authenticate, requireAdmin, (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// ─── Serve React build in production ────────────────────────────────────────
+// ─── 5. Serve React build in production ──────────────────────────────────────
 
 if (isProd) {
   const clientDist = path.join(__dirname, '../client/dist');
@@ -104,7 +124,7 @@ if (isProd) {
   });
 }
 
-// ─── 404 & global error handler ─────────────────────────────────────────────
+// ─── 6. 404 & global error handler ───────────────────────────────────────────
 
 if (!isProd) {
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
@@ -115,7 +135,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
+// ─── 7. Start ─────────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT} [${process.env.NODE_ENV || 'development'}]`);

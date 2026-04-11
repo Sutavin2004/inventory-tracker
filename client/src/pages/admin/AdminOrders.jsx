@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ShoppingBag, ChevronRight, Search, Filter, X, Download } from 'lucide-react';
-import { getAdminOrders, getAdminOrder, updateOrderStatus, cancelOrder } from '../../api/adminApi';
+import { ShoppingBag, ChevronRight, Search, X, Download, RefreshCw } from 'lucide-react';
+import { getAdminOrders, getAdminOrder, updateOrderStatus, cancelOrder, refundOrder } from '../../api/adminApi';
 import { useToast } from '../../context/ToastContext';
 
 const STATUS_COLORS = {
@@ -13,6 +13,13 @@ const STATUS_COLORS = {
   refunded:   'bg-purple-500/20 text-purple-300',
 };
 
+const PAYMENT_COLORS = {
+  paid:     'bg-emerald-500/20 text-emerald-300',
+  unpaid:   'bg-red-500/20 text-red-300',
+  refunded: 'bg-purple-500/20 text-purple-300',
+  failed:   'bg-red-500/20 text-red-400',
+};
+
 const STATUSES = ['pending','confirmed','processing','shipped','delivered','cancelled','refunded'];
 
 export default function AdminOrders() {
@@ -23,6 +30,12 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState(null);
   const [filters, setFilters]   = useState({ status: '', startDate: '', endDate: '', customerName: '' });
   const [page, setPage]         = useState(1);
+
+  // Refund modal state
+  const [refundOrder_,      setRefundOrder_]    = useState(null); // the order being refunded
+  const [refundAmount,     setRefundAmount]     = useState('');
+  const [refundReason,     setRefundReason]     = useState('');
+  const [refunding,        setRefunding]        = useState(false);
 
   const fetchOrders = () => {
     setLoading(true);
@@ -54,6 +67,31 @@ export default function AdminOrders() {
       fetchOrders();
     } catch (err) {
       addToast(err.response?.data?.error || 'Cannot cancel order', 'error');
+    }
+  };
+
+  const openRefundModal = (order) => {
+    setRefundOrder_(order);
+    setRefundAmount(order.total_amount?.toFixed(2) || '');
+    setRefundReason('');
+  };
+
+  const handleRefund = async () => {
+    if (!refundOrder_) return;
+    setRefunding(true);
+    try {
+      await refundOrder(refundOrder_.id, {
+        amount: parseFloat(refundAmount),
+        reason: refundReason,
+      });
+      addToast('Refund issued successfully', 'success');
+      setRefundOrder_(null);
+      if (selected?.id === refundOrder_.id) setSelected(null);
+      fetchOrders();
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Refund failed', 'error');
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -157,26 +195,39 @@ export default function AdminOrders() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs hidden lg:table-cell">{o.placed_at?.split('T')[0]}</td>
-                  <td className="px-4 py-3 text-right font-bold text-white">${o.total_amount?.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-white">
+                    ${o.total_amount?.toFixed(2)}
+                    {o.refund_amount > 0 && (
+                      <div className="text-xs text-purple-400 font-normal">-${o.refund_amount?.toFixed(2)} refunded</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[o.status]}`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[o.status] || 'bg-slate-600/60 text-slate-300'}`}>
                       {o.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      o.payment_status === 'paid' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                    }`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PAYMENT_COLORS[o.payment_status] || 'bg-slate-600/60 text-slate-300'}`}>
                       {o.payment_status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => viewOrder(o.id)}
-                      className="flex items-center gap-1 text-teal-400 hover:text-teal-300 text-xs font-medium ml-auto"
-                    >
-                      View <ChevronRight size={13} />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {o.payment_status === 'paid' && o.stripe_payment_intent_id && (
+                        <button
+                          onClick={() => openRefundModal(o)}
+                          className="text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:bg-purple-500/10 px-2 py-1 rounded-lg transition-colors"
+                        >
+                          Refund
+                        </button>
+                      )}
+                      <button
+                        onClick={() => viewOrder(o.id)}
+                        className="flex items-center gap-1 text-teal-400 hover:text-teal-300 text-xs font-medium"
+                      >
+                        View <ChevronRight size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -185,7 +236,83 @@ export default function AdminOrders() {
         )}
       </div>
 
-      {/* Order detail modal */}
+      {/* ── Refund modal ───────────────────────────────────────────────────── */}
+      {refundOrder_ && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+              <h2 className="text-white font-bold">Issue Refund</h2>
+              <button onClick={() => setRefundOrder_(null)} className="text-slate-400 hover:text-white text-xl">×</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-900/60 rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between text-slate-400">
+                  <span>Order</span>
+                  <span className="font-mono text-teal-300">{refundOrder_.order_number}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Customer</span>
+                  <span className="text-slate-200">{refundOrder_.customer_name}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Amount paid</span>
+                  <span className="text-slate-200 font-bold">${refundOrder_.total_amount?.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">
+                  Refund Amount ($) <span className="text-slate-500 font-normal">— max ${refundOrder_.total_amount?.toFixed(2)}</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.50"
+                  max={refundOrder_.total_amount}
+                  value={refundAmount}
+                  onChange={e => setRefundAmount(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Reason (optional)</label>
+                <input
+                  value={refundReason}
+                  onChange={e => setRefundReason(e.target.value)}
+                  placeholder="Customer requested refund..."
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600"
+                />
+              </div>
+
+              {parseFloat(refundAmount) >= refundOrder_.total_amount && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-300">
+                  Full refund — inventory quantities will be automatically restored.
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setRefundOrder_(null)}
+                  className="flex-1 py-2.5 border border-slate-600 text-slate-400 hover:text-slate-200 font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRefund}
+                  disabled={refunding || !refundAmount}
+                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {refunding && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {refunding ? 'Refunding…' : `Refund $${parseFloat(refundAmount || 0).toFixed(2)}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Order detail modal ─────────────────────────────────────────────── */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -241,20 +368,38 @@ export default function AdminOrders() {
               </div>
 
               <div className="border-t border-slate-700 pt-4 space-y-1.5 text-sm">
-                <div className="flex justify-between text-slate-400">
-                  <span>Subtotal</span><span>${selected.subtotal?.toFixed(2)}</span>
-                </div>
+                <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>${selected.subtotal?.toFixed(2)}</span></div>
                 <div className="flex justify-between text-slate-400">
                   <span>Shipping</span>
                   <span>{selected.shipping_amount === 0 ? 'FREE' : `$${selected.shipping_amount?.toFixed(2)}`}</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Tax</span><span>${selected.tax_amount?.toFixed(2)}</span>
-                </div>
+                <div className="flex justify-between text-slate-400"><span>Tax</span><span>${selected.tax_amount?.toFixed(2)}</span></div>
+                {selected.processing_fee > 0 && (
+                  <div className="flex justify-between text-slate-500 text-xs">
+                    <span>Processing fee</span><span>${selected.processing_fee?.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-white font-bold text-base border-t border-slate-700 pt-2 mt-1">
                   <span>Total</span><span>${selected.total_amount?.toFixed(2)}</span>
                 </div>
+                {selected.refund_amount > 0 && (
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 mt-2">
+                    <div className="flex justify-between text-purple-300 text-xs font-semibold">
+                      <span>Refunded</span><span>-${selected.refund_amount?.toFixed(2)}</span>
+                    </div>
+                    {selected.refund_reason && <p className="text-purple-400/70 text-xs mt-1">{selected.refund_reason}</p>}
+                    {selected.refunded_at && <p className="text-purple-400/50 text-xs">{selected.refunded_at?.split('T')[0]}</p>}
+                  </div>
+                )}
               </div>
+
+              {/* Stripe payment info */}
+              {selected.stripe_payment_intent_id && (
+                <div className="bg-slate-900/40 rounded-xl p-3 text-xs text-slate-500">
+                  <span className="text-slate-400 font-semibold">Stripe PI: </span>
+                  <span className="font-mono">{selected.stripe_payment_intent_id}</span>
+                </div>
+              )}
 
               {!['cancelled','refunded','delivered'].includes(selected.status) && (
                 <button

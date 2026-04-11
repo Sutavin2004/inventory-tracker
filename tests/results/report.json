@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-09T02:10:07.904Z",
+  "timestamp": "2026-04-11T23:21:24.264Z",
   "summary": {
     "total": 48,
     "passed": 48,
@@ -175,7 +175,7 @@
     {
       "name": "7.1 Customer places order successfully",
       "status": "PASS",
-      "detail": "order: ORD-MNQUALXV-VTY3Z"
+      "detail": "order: ORD-MNUYL6HO-4HHUZ"
     },
     {
       "name": "7.2 Inventory deducted after order",
